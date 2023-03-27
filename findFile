@@ -1,0 +1,29 @@
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class PatternMatchingFileReader {
+    public static void main(String[] args) {
+        String directoryPath = "C:/path/to/directory"; // replace with the directory path you want to search
+        String filePattern = ".*\\.txt"; // replace with the file pattern you want to match (this example matches all files with .txt extension)
+
+        File directory = new File(directoryPath);
+        if (directory.isDirectory()) {
+            File[] files = directory.listFiles((dir, name) -> name.matches(filePattern));
+            for (File file : files) {
+                System.out.println("Reading file: " + file.getAbsolutePath());
+                try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println(line);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            System.out.println(directoryPath + " is not a directory.");
+        }
+    }
+}
