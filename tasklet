@@ -1,0 +1,16 @@
+public class TableClearingTasklet implements Tasklet {
+
+    private JdbcTemplate jdbcTemplate;
+    private String tableName;
+
+    public TableClearingTasklet(JdbcTemplate jdbcTemplate, String tableName) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.tableName = tableName;
+    }
+
+    @Override
+    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
+        jdbcTemplate.update("DELETE FROM " + tableName);
+        return RepeatStatus.FINISHED;
+    }
+}
