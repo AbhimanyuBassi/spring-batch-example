@@ -1,27 +1,57 @@
-@Bean
-public MultiResourceItemReader<Person> multiResourceItemReader() {
-    MultiResourceItemReader<Person> reader = new MultiResourceItemReader<>();
-    reader.setResources(getMatchingResources());
-    reader.setDelegate(flatFileItemReader());
-    return reader;
-}
+@Configuration
+@EnableBatchProcessing
+public class BatchConfiguration {
 
-@Bean
-@StepScope
-public FlatFileItemReader<Person> flatFileItemReader(@Value("#{stepExecutionContext['fileName']}") String fileName) {
-    FlatFileItemReader<Person> reader = new FlatFileItemReader<>();
-    reader.setResource(new FileSystemResource(fileName));
-    reader.setLineMapper(lineMapper());
-    return reader;
-}
+    @Autowired
+    private JobBuilderFactory jobBuilderFactory;
 
-private Resource[] getMatchingResources() {
-    ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-    Resource[] resources = null;
-    try {
-        resources = resolver.getResources("file:/path/to/files/*.txt"); // replace with the file pattern you want to match
-    } catch (IOException e) {
-        e.printStackTrace();
+    @Autowired
+    private StepBuilderFactory stepBuilderFactory;
+
+    @Autowired
+    private DataSource dataSource;
+
+    @Bean
+    public MultiResourceItemReader<File> multiResourceItemReader() {
+        MultiResourceItemReader<File> reader = new MultiResourceItemReader<>();
+        reader.setResources(new PathMatchingResourcePatternResolver().getResources("file:/path/to/directory/*.txt"));
+        reader.setDelegate(new FlatFileItemReaderBuilder<File>()
+            .name("fileItemReader")
+            .lineMapper(new PassThroughLineMapper())
+            .build());
+        return reader;
     }
-    return resources;
+
+    @Bean
+    public ItemProcessor<File, MyData> itemProcessor() {
+        return new MyDataProcessor();
+    }
+
+    @Bean
+    public JdbcBatchItemWriter<MyData> jdbcBatchItemWriter() {
+        JdbcBatchItemWriter<MyData> writer = new JdbcBatchItemWriter<>();
+        writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<>());
+        writer.setSql("INSERT INTO my_data (name, value) VALUES (:name, :value)");
+        writer.setDataSource(dataSource);
+        return writer;
+    }
+
+    @Bean
+    public Step step() {
+        return stepBuilderFactory.get("step")
+            .<File, MyData>chunk(10)
+            .reader(multiResourceItemReader())
+            .processor(itemProcessor())
+            .writer(jdbcBatchItemWriter())
+            .build();
+    }
+
+    @Bean
+    public Job job() {
+        return jobBuilderFactory.get("job")
+            .incrementer(new RunIdIncrementer())
+            .start(step())
+            .build();
+    }
+
 }
