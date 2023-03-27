@@ -1,0 +1,27 @@
+@Bean
+public MultiResourceItemReader<Person> multiResourceItemReader() {
+    MultiResourceItemReader<Person> reader = new MultiResourceItemReader<>();
+    reader.setResources(getMatchingResources());
+    reader.setDelegate(flatFileItemReader());
+    return reader;
+}
+
+@Bean
+@StepScope
+public FlatFileItemReader<Person> flatFileItemReader(@Value("#{stepExecutionContext['fileName']}") String fileName) {
+    FlatFileItemReader<Person> reader = new FlatFileItemReader<>();
+    reader.setResource(new FileSystemResource(fileName));
+    reader.setLineMapper(lineMapper());
+    return reader;
+}
+
+private Resource[] getMatchingResources() {
+    ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+    Resource[] resources = null;
+    try {
+        resources = resolver.getResources("file:/path/to/files/*.txt"); // replace with the file pattern you want to match
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+    return resources;
+}
