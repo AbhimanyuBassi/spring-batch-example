@@ -1,0 +1,49 @@
+@Configuration
+@EnableBatchProcessing
+public class BatchConfiguration {
+
+    @Autowired
+    private JobBuilderFactory jobBuilderFactory;
+
+    @Autowired
+    private StepBuilderFactory stepBuilderFactory;
+
+    @Autowired
+    private DataSource dataSource;
+
+    @Bean
+    public Job myJob() {
+        return jobBuilderFactory.get("myJob")
+                .incrementer(new RunIdIncrementer())
+                .start(clearTableStep())
+                .next(loadCsvStep())
+                .build();
+    }
+
+    @Bean
+    public Step clearTableStep() {
+        return stepBuilderFactory.get("clearTableStep")
+                .tasklet(tableClearingTasklet())
+                .build();
+    }
+
+    @Bean
+    public Step loadCsvStep() {
+        // Your CSV loading step definition here
+    }
+
+    @Bean
+    public TableClearingTasklet tableClearingTasklet() {
+        return new TableClearingTasklet(jdbcTemplate(), "my_table");
+    }
+
+    @Bean
+    public JdbcTemplate jdbcTemplate() {
+        return new JdbcTemplate(dataSource);
+    }
+
+    @Bean
+    public DataSource dataSource() {
+        // Your datasource bean definition here
+    }
+}
