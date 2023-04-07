@@ -1,0 +1,72 @@
+@Configuration
+@EnableBatchProcessing
+public class BatchConfiguration {
+
+    @Autowired
+    private JobBuilderFactory jobBuilderFactory;
+
+    @Autowired
+    private StepBuilderFactory stepBuilderFactory;
+
+    @Autowired
+    private DataSource dataSource;
+
+    @Bean
+    public ItemReader<MyData> itemReader() {
+        JdbcCursorItemReader<MyData> reader = new JdbcCursorItemReader<MyData>();
+        reader.setDataSource(dataSource);
+        reader.setSql("SELECT * FROM my_table");
+        reader.setRowMapper(new MyDataRowMapper());
+        return new MyDataListReader(reader);
+    }
+
+    @Bean
+    public Step myStep() {
+        return stepBuilderFactory.get("myStep")
+                .<MyData, MyData>chunk(10)
+                .reader(itemReader())
+                .processor(myProcessor())
+                .writer(myWriter())
+                .build();
+    }
+
+    @Bean
+    public Job myJob() {
+        return jobBuilderFactory.get("myJob")
+                .start(myStep())
+                .build();
+    }
+
+    // Implement the processor and writer for your job as per your requirement
+    // ...
+
+    private static class MyDataListReader implements ItemReader<MyData> {
+
+        private final JdbcCursorItemReader<MyData> delegate;
+        private List<MyData> buffer;
+
+        public MyDataListReader(JdbcCursorItemReader<MyData> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public MyData read() throws Exception {
+            if (buffer == null) {
+                buffer = new ArrayList<>();
+                delegate.open(new ExecutionContext());
+                while (true) {
+                    MyData item = delegate.read();
+                    if (item == null) {
+                        break;
+                    }
+                    buffer.add(item);
+                }
+                delegate.close();
+            }
+            if (!buffer.isEmpty()) {
+                return buffer.remove(0);
+            }
+            return null;
+        }
+    }
+}
